@@ -4,7 +4,7 @@
 
 ## Features
 
-* **List items** — display the names of clusters, users or contexts.
+* **List items** — display the names of clusters, users or contexts, or list all at once.
 * **Delete items** — remove specific clusters, users or contexts.
 * **Rename items** — rename clusters, users or contexts and automatically update all references, including the `current-context`.
 * **Prune config** — remove clusters and users that are not referenced by any context.
@@ -55,12 +55,13 @@ Below is a quick reference. Run `kedit <command> --help` for the full syntax of 
 
 #### list
 
-List the names of clusters, users or contexts.
+List the names of clusters, users, contexts, or all of them at once.
 
 ```bash
 kedit list cluster
 kedit list user
 kedit list context
+kedit list all
 ```
 
 #### delete
