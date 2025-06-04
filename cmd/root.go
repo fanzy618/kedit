@@ -99,14 +99,20 @@ func loadKubeconfig(filePath string) (*api.Config, error) {
 // It creates the parent directory if it doesn't exist.
 func saveKubeconfig(config *api.Config, filePath string) error {
 	dir := filepath.Dir(filePath)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if mkdirErr := os.MkdirAll(dir, 0755); mkdirErr != nil { // 0755 for directory permissions
-			return fmt.Errorf("failed to create directory '%s': %w", dir, mkdirErr)
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if mkdirErr := os.MkdirAll(dir, 0755); mkdirErr != nil {
+				return fmt.Errorf("failed to create directory '%s': %w", dir, mkdirErr)
+			}
+		} else {
+			return fmt.Errorf("failed to access directory '%s': %w", dir, err)
 		}
+	} else if !info.IsDir() {
+		return fmt.Errorf("path '%s' exists but is not a directory", dir)
 	}
 
-	err := clientcmd.WriteToFile(*config, filePath)
-	if err != nil {
+	if err := clientcmd.WriteToFile(*config, filePath); err != nil {
 		return fmt.Errorf("failed to save kubeconfig to '%s': %w", filePath, err)
 	}
 	return nil
