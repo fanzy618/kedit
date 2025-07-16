@@ -12,16 +12,18 @@ import (
 
 var (
 	sourceKubeconfigPath string // Flag for the source kubeconfig file path
+	newName              string // Flag for the new name for the context, cluster, and user
 )
 
 // mergeCmd represents the merge command
 var mergeCmd = &cobra.Command{
-	Use:   "merge <context_name> --from <source_kubeconfig_path>",
+	Use:   "merge <context_name> --from <source_kubeconfig_path> [--name <new_name>]",
 	Short: "Merge a context from another kubeconfig file",
 	Long: `Import a specific context, along with its referenced cluster and user,
 from another kubeconfig file into the current target kubeconfig file.
 <context_name> is the name of the context to import.
 --from (or -s) specifies the path to the source kubeconfig file.
+--name (or -n) allows renaming the context and its associated cluster and user upon merging.
 
 If an item (context, cluster, or user) with the same name already exists
 in the target kubeconfig, it will be overwritten by the item from the source.`,
@@ -79,6 +81,25 @@ in the target kubeconfig, it will be overwritten by the item from the source.`,
 			}
 		}
 
+		// Determine the final names for the context, cluster, and user
+		finalContextName := contextToMerge
+		finalClusterName := clusterNameFromSource
+		finalUserName := userNameFromSource
+
+		if newName != "" {
+			finalContextName = newName
+			finalClusterName = newName
+			finalUserName = newName
+		}
+
+		// Update the context's references if renaming
+		if newName != "" {
+			sourceContext.Cluster = finalClusterName
+			if sourceContext.AuthInfo != "" {
+				sourceContext.AuthInfo = finalUserName
+			}
+		}
+
 		// Load target kubeconfig (our helper `loadKubeconfig` creates an empty one if it doesn't exist)
 		targetConfig, err := loadKubeconfig(resolvedKubeconfigPath)
 		if err != nil {
@@ -87,10 +108,10 @@ in the target kubeconfig, it will be overwritten by the item from the source.`,
 		// loadKubeconfig ensures maps are initialized in targetConfig
 
 		// Add/Overwrite context, cluster, and user to the target config
-		targetConfig.Contexts[contextToMerge] = sourceContext
-		targetConfig.Clusters[clusterNameFromSource] = sourceCluster
+		targetConfig.Contexts[finalContextName] = sourceContext
+		targetConfig.Clusters[finalClusterName] = sourceCluster
 		if userNameFromSource != "" && userExistsInSource { // Only add user if it was specified and found
-			targetConfig.AuthInfos[userNameFromSource] = sourceUser
+			targetConfig.AuthInfos[finalUserName] = sourceUser
 		}
 
 		// Save the modified target kubeconfig
@@ -100,16 +121,17 @@ in the target kubeconfig, it will be overwritten by the item from the source.`,
 
 		userMergeMsg := "no specific user"
 		if userNameFromSource != "" {
-			userMergeMsg = fmt.Sprintf("user '%s'", userNameFromSource)
+			userMergeMsg = fmt.Sprintf("user '%s'", finalUserName)
 		}
 		fmt.Printf("Successfully merged context '%s' (with cluster '%s' and %s) from '%s' into '%s'.\n",
-			contextToMerge, clusterNameFromSource, userMergeMsg, expandedSourcePath, resolvedKubeconfigPath)
+			finalContextName, finalClusterName, userMergeMsg, expandedSourcePath, resolvedKubeconfigPath)
 		return nil
 	},
 }
 
 func init() {
 	mergeCmd.Flags().StringVarP(&sourceKubeconfigPath, "from", "s", "", "Path to the source kubeconfig file (required)")
+	mergeCmd.Flags().StringVarP(&newName, "name", "n", "", "New name for the context, cluster, and user")
 	// MarkFlagRequired is an option, but manual check in RunE is also fine.
 	// if err := mergeCmd.MarkFlagRequired("from"); err != nil {
 	// 	 fmt.Fprintf(os.Stderr, "Error marking flag 'from' as required: %v\n", err)

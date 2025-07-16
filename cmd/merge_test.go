@@ -245,4 +245,48 @@ users:
 		assert.Len(t, config.Clusters, 1)
 		assert.Len(t, config.AuthInfos, 1)
 	})
+
+	// Test merging with a new name.
+	t.Run("merge with new name", func(t *testing.T) {
+		tempDir, err := ioutil.TempDir("", "kedit-test-merge-new-name-")
+		assert.NoError(t, err)
+		defer os.RemoveAll(tempDir)
+
+		targetKubeconfigPath := createTargetKubeconfig(tempDir)
+		sourceKubeconfigPath := createSourceKubeconfig(tempDir, `
+apiVersion: v1
+clusters:
+- cluster:
+    server: https://new-cluster
+  name: new-cluster
+contexts:
+- context:
+    cluster: new-cluster
+    user: new-user
+  name: new-context
+current-context: new-context
+kind: Config
+preferences: {}
+users:
+- name: new-user
+  user:
+    token: new-token
+`)
+
+		output := executeCommandC(t, "merge", "new-context", "--from", sourceKubeconfigPath, "--name", "renamed", "--kubeconfig", targetKubeconfigPath)
+		expectedOutput := "Successfully merged context 'renamed' (with cluster 'renamed' and user 'renamed') from '" + sourceKubeconfigPath + "' into '" + targetKubeconfigPath + "'."
+		assert.Equal(t, expectedOutput, output)
+
+		// Verify the merged and renamed content.
+		config, err := clientcmd.LoadFromFile(targetKubeconfigPath)
+		assert.NoError(t, err)
+		assert.NotNil(t, config.Contexts["renamed"])
+		assert.NotNil(t, config.Clusters["renamed"])
+		assert.NotNil(t, config.AuthInfos["renamed"])
+		assert.Len(t, config.Contexts, 2)
+		assert.Len(t, config.Clusters, 2)
+		assert.Len(t, config.AuthInfos, 2)
+		assert.Equal(t, "renamed", config.Contexts["renamed"].Cluster)
+		assert.Equal(t, "renamed", config.Contexts["renamed"].AuthInfo)
+	})
 }
