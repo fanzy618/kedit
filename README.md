@@ -95,7 +95,7 @@ kedit prune
 Merge a context (with its cluster and user) from another kubeconfig.
 
 ```bash
-kedit merge --from /path/to/other/kubeconfig <context-name>
+kedit merge <context-name> --from /path/to/other/kubeconfig [--name <new-name>]
 ```
 
 ---
